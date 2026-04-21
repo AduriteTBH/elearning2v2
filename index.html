@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2v2.io — Building Simulator Battle Royale</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Barlow:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0c10;
+      --surface:  #12161d;
+      --accent:   #f0c030;
+      --accent2:  #e05a20;
+      --text:     #e8eaf0;
+      --muted:    #5a6070;
+      --bar-h:    48px;
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Barlow', sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── TOP BAR ── */
+    #topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--bar-h);
+      background: var(--surface);
+      border-bottom: 2px solid #1e2530;
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 16px;
+      z-index: 100;
+      user-select: none;
+    }
+
+    #logo {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 22px;
+      letter-spacing: 1px;
+      color: var(--accent);
+      text-transform: uppercase;
+      line-height: 1;
+    }
+    #logo span { color: var(--accent2); }
+
+    #topbar-right {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .tb-btn {
+      background: #1e2530;
+      border: 1px solid #2a3040;
+      color: var(--text);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .tb-btn:hover { background: #28303e; border-color: var(--accent); color: var(--accent); }
+    .tb-btn.primary { background: var(--accent); color: #0a0c10; border-color: var(--accent); }
+    .tb-btn.primary:hover { background: #f8d050; }
+
+    /* ── GAME WRAPPER ── */
+    #game-wrap {
+      position: fixed;
+      top: var(--bar-h); left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+
+    #unity-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    /* ── LOADING SCREEN ── */
+    #loading-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      z-index: 50;
+      gap: 28px;
+      transition: opacity 0.5s ease;
+    }
+    #loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #loading-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900;
+      font-size: clamp(42px, 7vw, 80px);
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      line-height: 0.9;
+      text-align: center;
+    }
+    #loading-title .line1 { color: var(--text); }
+    #loading-title .line2 {
+      color: var(--accent);
+      -webkit-text-stroke: 2px var(--accent2);
+      paint-order: stroke fill;
+    }
+
+    #loading-sub {
+      font-size: 13px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    #progress-wrap {
+      width: min(380px, 70vw);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    #progress-bar-bg {
+      width: 100%;
+      height: 4px;
+      background: #1e2530;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    #progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent2), var(--accent));
+      border-radius: 2px;
+      transition: width 0.2s ease;
+    }
+
+    #progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* loading dots animation */
+    #loading-status::after {
+      content: '';
+      animation: dots 1.4s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      25%  { content: '.'; }
+      50%  { content: '..'; }
+      75%  { content: '...'; }
+    }
+
+    /* ── ERROR BANNER ── */
+    #error-banner {
+      display: none;
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #3a1010;
+      border: 1px solid #a03030;
+      color: #f08080;
+      padding: 12px 20px;
+      border-radius: 4px;
+      font-size: 13px;
+      max-width: 500px;
+      text-align: center;
+      z-index: 200;
+    }
+
+    /* ── FULLSCREEN HINT ── */
+    #fs-hint {
+      position: absolute;
+      bottom: 12px;
+      right: 14px;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 60;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #game-wrap:hover #fs-hint { opacity: 1; }
+
+    /* scanline texture overlay for atmosphere */
+    #game-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div id="logo">2v2<span>.</span>io</div>
+    <span style="color:var(--muted);font-size:12px;letter-spacing:1px;text-transform:uppercase;">Building Simulator</span>
+    <div id="topbar-right">
+      <button class="tb-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+    </div>
+  </div>
+
+  <!-- GAME AREA -->
+  <div id="game-wrap">
+
+    <canvas id="unity-canvas" tabindex="1"></canvas>
+
+    <!-- LOADING OVERLAY -->
+    <div id="loading-screen">
+      <div id="loading-title">
+        <div class="line1">2v2</div>
+        <div class="line2">.io</div>
+      </div>
+      <div id="loading-sub">Building Simulator · Battle Royale</div>
+
+      <div id="progress-wrap">
+        <div id="progress-bar-bg">
+          <div id="progress-bar-fill"></div>
+        </div>
+        <div id="progress-label">
+          <span id="loading-status">Loading</span>
+          <span id="progress-pct">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ERROR BANNER -->
+    <div id="error-banner"></div>
+
+    <!-- FULLSCREEN HINT -->
+    <div id="fs-hint">Press F for fullscreen</div>
+
+  </div>
+
+  <!-- UNITY LOADER -->
+  <script src="game_loader.js"></script>
+
+  <script>
+    var canvas   = document.getElementById("unity-canvas");
+    var loadingScreen = document.getElementById("loading-screen");
+    var progressFill  = document.getElementById("progress-bar-fill");
+    var progressPct   = document.getElementById("progress-pct");
+    var loadingStatus = document.getElementById("loading-status");
+    var errorBanner   = document.getElementById("error-banner");
+
+    // ── Responsive canvas sizing ──
+    function resizeCanvas() {
+      var wrap = document.getElementById("game-wrap");
+      canvas.style.width  = wrap.clientWidth  + "px";
+      canvas.style.height = wrap.clientHeight + "px";
+    }
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    // ── Fullscreen ──
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.getElementById("game-wrap").requestFullscreen().catch(function(){});
+      } else {
+        document.exitFullscreen();
+      }
+    }
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "f" || e.key === "F") toggleFullscreen();
+    });
+
+    // ── Show error ──
+    function showError(msg) {
+      errorBanner.textContent = msg;
+      errorBanner.style.display = "block";
+      loadingStatus.textContent = "Error";
+    }
+
+    // ── Unity config ──
+    var config = {
+      dataUrl:        "game.data",
+      frameworkUrl:   "game_framework.js",
+      codeUrl:        "game.wasm",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName:    "2v2.io",
+      productName:    "2v2.io",
+      productVersion: "1.0",
+      showBanner: function(msg, type) {
+        if (type === "error") {
+          showError(msg);
+        } else {
+          console.warn("[Unity]", msg);
+        }
+      }
+    };
+
+    // ── Boot ──
+    createUnityInstance(canvas, config, function(progress) {
+      var pct = Math.round(progress * 100);
+      progressFill.style.width = pct + "%";
+      progressPct.textContent  = pct + "%";
+      if (progress < 0.3)      loadingStatus.textContent = "Loading";
+      else if (progress < 0.6) loadingStatus.textContent = "Unpacking";
+      else if (progress < 0.9) loadingStatus.textContent = "Compiling";
+      else                     loadingStatus.textContent = "Starting";
+    }).then(function(unityInstance) {
+      // Hide loading screen
+      loadingScreen.classList.add("hidden");
+      setTimeout(function() { loadingScreen.style.display = "none"; }, 600);
+      canvas.focus();
+    }).catch(function(err) {
+      showError(err || "Failed to start the game. Check the console for details.");
+    });
+  </script>
+
+</body>
+</html>
